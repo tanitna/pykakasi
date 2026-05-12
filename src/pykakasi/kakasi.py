@@ -125,12 +125,16 @@ class Kakasi:
                 # flush first
                 if len(original_text) > 0:
                     _result.append(self._iconv.convert(original_text, kana_text))
+                    original_text = ""
+                    kana_text = ""
                 i += 1
                 action_flag = _ACTION.DO_NOTHING
             else:
                 # flush first
                 if len(original_text) > 0:
                     _result.append(self._iconv.convert(original_text, kana_text))
+                    original_text = ""
+                    kana_text = ""
                 _result.append(self._iconv.convert(text[i], ""))
                 i += 1
                 action_flag = _ACTION.DO_NOTHING
