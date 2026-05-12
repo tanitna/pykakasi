@@ -668,3 +668,36 @@ def test_aozora():
     assert result[9]['kana'] == 'サレテ'
     assert result[10]['kana'] == 'イル'
     assert result[11]['kana'] == '。'
+
+
+def test_issue_179_sokuon_doubling_for_n_m_w_z():
+    """Codeberg #179 - small tsu (sokuon) before n/m/w+vowel or ze was
+    emitted as a standalone 'tsu' instead of doubling the following
+    consonant. Reported case: ハッミー -> hatsumii (should be hammii). The
+    fix adds the missing entries to the hepburn/kunrei/passport hira
+    dictionaries.
+    """
+    kks = pykakasi.kakasi()
+    # The originally-reported case.
+    assert kks.convert("ハッミー")[0]["hepburn"] == "hammii"
+
+    # m-row.
+    for s, exp in [("ハッマ", "hamma"), ("ハッメ", "hamme"), ("ハッミ", "hammi"),
+                   ("ハッモ", "hammo"), ("ハッム", "hammu")]:
+        assert kks.convert(s)[0]["hepburn"] == exp, f"{s!r} -> {kks.convert(s)[0]['hepburn']}, expected {exp}"
+
+    # n-row.
+    for s, exp in [("ハッナ", "hanna"), ("ハッネ", "hanne"), ("ハッニ", "hanni"),
+                   ("ハッノ", "hanno"), ("ハッヌ", "hannu")]:
+        assert kks.convert(s)[0]["hepburn"] == exp, f"{s!r} -> {kks.convert(s)[0]['hepburn']}, expected {exp}"
+
+    # w-row.
+    assert kks.convert("ハッワ")[0]["hepburn"] == "hawwa"
+
+    # z-row had zza/zzo/zzu but not zze.
+    assert kks.convert("ハッゼ")[0]["hepburn"] == "hazze"
+
+    # Cross-style sanity for the reported case.
+    r = kks.convert("ハッミー")[0]
+    assert r["kunrei"] == "hammii"
+    assert r["passport"] == "hammii"
