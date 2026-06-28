@@ -701,3 +701,34 @@ def test_issue_179_sokuon_doubling_for_n_m_w_z():
     r = kks.convert("ハッミー")[0]
     assert r["kunrei"] == "hammii"
     assert r["passport"] == "hammii"
+
+
+def test_issue_161_halfwidth_punctuation_no_duplication():
+    """Codeberg #161 - characters in the 0xF000-0xFFFD "PUA" branch (which
+    also catches halfwidth Japanese punctuation in the 0xFF61-0xFF65 range)
+    used to leave the pending-text buffer un-cleared. The buffer was then
+    emitted a second time by the final-word cleanup, producing duplicated
+    tokens whenever input ended with - or contained - these characters.
+
+    Halfwidth period ｡ (U+FF61), comma ､ (U+FF64), and katakana
+    middle dot ･ (U+FF65) are common in Japanese broadcast subtitles,
+    so this affected real-world corpora.
+    """
+    kks = pykakasi.kakasi()
+
+    # Trailing halfwidth period - previously produced ["はい", "はい"].
+    r = kks.convert("はい｡")
+    assert [x["orig"] for x in r] == ["はい"]
+
+    # Halfwidth period mid-string - previously produced
+    # ["はい", "はいうん"] because the buffer was not cleared.
+    r = kks.convert("はい｡うん")
+    assert [x["orig"] for x in r] == ["はい", "うん"]
+
+    # Halfwidth comma (U+FF64) - same family.
+    r = kks.convert("はい､うん")
+    assert [x["orig"] for x in r] == ["はい", "うん"]
+
+    # Halfwidth katakana middle dot (U+FF65) as a name separator.
+    r = kks.convert("かまいたち･山内")
+    assert [x["orig"] for x in r] == ["かまいたち", "山内"]
