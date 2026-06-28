@@ -715,3 +715,67 @@ def test_variation_selector_basic_range_and_standalone():
     r = kks.convert("\U000E0100")
     assert r[0]["orig"] == "\U000E0100"
     assert r[0]["hira"] == ""
+
+
+def test_issue_179_sokuon_doubling_for_n_m_w_z():
+    """Codeberg #179 - small tsu (sokuon) before n/m/w+vowel or ze was
+    emitted as a standalone 'tsu' instead of doubling the following
+    consonant. Reported case: ハッミー -> hatsumii (should be hammii). The
+    fix adds the missing entries to the hepburn/kunrei/passport hira
+    dictionaries.
+    """
+    kks = pykakasi.kakasi()
+    # The originally-reported case.
+    assert kks.convert("ハッミー")[0]["hepburn"] == "hammii"
+
+    # m-row.
+    for s, exp in [("ハッマ", "hamma"), ("ハッメ", "hamme"), ("ハッミ", "hammi"),
+                   ("ハッモ", "hammo"), ("ハッム", "hammu")]:
+        assert kks.convert(s)[0]["hepburn"] == exp, f"{s!r} -> {kks.convert(s)[0]['hepburn']}, expected {exp}"
+
+    # n-row.
+    for s, exp in [("ハッナ", "hanna"), ("ハッネ", "hanne"), ("ハッニ", "hanni"),
+                   ("ハッノ", "hanno"), ("ハッヌ", "hannu")]:
+        assert kks.convert(s)[0]["hepburn"] == exp, f"{s!r} -> {kks.convert(s)[0]['hepburn']}, expected {exp}"
+
+    # w-row.
+    assert kks.convert("ハッワ")[0]["hepburn"] == "hawwa"
+
+    # z-row had zza/zzo/zzu but not zze.
+    assert kks.convert("ハッゼ")[0]["hepburn"] == "hazze"
+
+    # Cross-style sanity for the reported case.
+    r = kks.convert("ハッミー")[0]
+    assert r["kunrei"] == "hammii"
+    assert r["passport"] == "hammii"
+
+
+def test_issue_161_halfwidth_punctuation_no_duplication():
+    """Codeberg #161 - characters in the 0xF000-0xFFFD "PUA" branch (which
+    also catches halfwidth Japanese punctuation in the 0xFF61-0xFF65 range)
+    used to leave the pending-text buffer un-cleared. The buffer was then
+    emitted a second time by the final-word cleanup, producing duplicated
+    tokens whenever input ended with - or contained - these characters.
+
+    Halfwidth period ｡ (U+FF61), comma ､ (U+FF64), and katakana
+    middle dot ･ (U+FF65) are common in Japanese broadcast subtitles,
+    so this affected real-world corpora.
+    """
+    kks = pykakasi.kakasi()
+
+    # Trailing halfwidth period - previously produced ["はい", "はい"].
+    r = kks.convert("はい｡")
+    assert [x["orig"] for x in r] == ["はい"]
+
+    # Halfwidth period mid-string - previously produced
+    # ["はい", "はいうん"] because the buffer was not cleared.
+    r = kks.convert("はい｡うん")
+    assert [x["orig"] for x in r] == ["はい", "うん"]
+
+    # Halfwidth comma (U+FF64) - same family.
+    r = kks.convert("はい､うん")
+    assert [x["orig"] for x in r] == ["はい", "うん"]
+
+    # Halfwidth katakana middle dot (U+FF65) as a name separator.
+    r = kks.convert("かまいたち･山内")
+    assert [x["orig"] for x in r] == ["かまいたち", "山内"]
